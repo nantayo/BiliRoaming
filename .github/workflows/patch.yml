@@ -1,0 +1,55 @@
+name: Patch BiliBili with BiliRoaming
+
+on:
+  workflow_dispatch:
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@main
+      
+    - name: Setup Java JDK
+      uses: actions/setup-java@main
+      with:
+        distribution: "temurin"
+        java-version: "21"
+
+    - name: Download BiliBili
+      run: |
+        wget -q -U "Mozilla/5.0" -O BiliBili.apk https://dl.hdslb.com/mobile/latest/android64/iBiliPlayer-bili.apk
+        wget -q -U "Mozilla/5.0" -O BiliBili-HD.apk https://dl.hdslb.com/mobile/latest/android_hd/iBiliPlayer-bili.apk
+
+    - name: Download LSPatch
+      run: |
+        gh release download -O LSPatch.jar --repo LSPosed/LSPatch --pattern '*.jar'
+
+    - name: Download BiliRoaming
+      run: |
+        gh release download -R nantayo/BiliRoaming BiliRoaming-APK -p 'BiliR*.apk' -O BiliRoaming.apk
+
+    - name: Patch BiliBili
+      run: |
+        java -jar LSPatch.jar BiliBili.apk -m BiliRoaming.apk -l 2
+        java -jar LSPatch.jar BiliBili-HD.apk -m BiliRoaming.apk -l 2
+        echo "FILE_DATE=$(date +"%Y%m%d")" >> $GITHUB_ENV
+
+    - name: Upload APK to release
+      uses: softprops/action-gh-release@master
+      with:
+        tag_name: BiliBili-APK_${{ env.FILE_DATE }}
+        files: |
+            *-lspatched.apk
+
+    - name: Delete old releases
+      uses: dev-drprasad/delete-older-releases@master
+      with:
+        keep_latest: 1
+        delete_tags : true
+        delete_tag_pattern : BiliBili-APK
