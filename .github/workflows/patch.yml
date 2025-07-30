@@ -1,0 +1,49 @@
+name: Patch APKs with BiliRoaming
+
+on:
+  workflow_dispatch:
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@main
+      
+    - name: Setup Java JDK
+      uses: actions/setup-java@main
+      with:
+        distribution: "temurin"
+        java-version: "21"
+
+    - name: Download Resources
+      run: |
+        gh release download -R nantayo/BiliRoaming BiliBili-APK -p '*.apk' -O BiliBili.apk
+        gh release download -R nantayo/BiliRoaming BiliBili-HD-APK -p '*.apk' -O BiliBili-HD.apk
+        gh release download -R nantayo/BiliRoaming BiliRoaming-APK -p '*.apk' -O BiliRoaming.apk
+        gh release download -R LSPosed/LSPatch -p '*.jar' -O LSPatch.jar 
+
+    - name: Patch APKs
+      run: |
+        java -jar LSPatch.jar BiliBili.apk -m BiliRoaming.apk -l 2
+        java -jar LSPatch.jar BiliBili-HD.apk -m BiliRoaming.apk -l 2
+        echo "FILE_DATE=$(date +"%Y%m%d")" >> $GITHUB_ENV
+
+    - name: Upload APKs to release
+      uses: softprops/action-gh-release@master
+      with:
+        tag_name: Patched-APKs_${{ env.FILE_DATE }}
+        files: |
+            *-lspatched.apk
+
+    - name: Delete old releases
+      uses: dev-drprasad/delete-older-releases@master
+      with:
+        keep_latest: 1
+        delete_tags : true
+        delete_tag_pattern : Patched
